@@ -1,0 +1,66 @@
+Question 5 — What the actual 1,000-conversation training subset teaches
+=======================================================================
+
+Source: data/ultrachat_train_1000_seed42.jsonl (all 1,000 saved rows inspected
+programmatically; examples below refer to 1-based row numbers). This is not a
+survey of the full UltraChat dataset or a quantitative test_sft evaluation.
+
+The saved set contains 1,000 alternating user/assistant multi-turn conversations
+(3,145 assistant turns). Common examples include:
+
+1. Actionable, structured instructions. Row 1 asks for a customer-feedback
+   tracking system; its first assistant answer enumerates collection,
+   categorization, response assignment, analysis, remediation, customer
+   communication, and monitoring. Row 2 asks for a home-cleaning routine and
+   receives a numbered daily/weekly/monthly procedure. Row 1 later asks for
+   more detail on root-cause remediation; row 2 later asks specifically about
+   organizing a home office. The desired behavior is to answer with concrete,
+   organized steps and adapt the details to the user's setting.
+
+2. Conversational follow-up and revision. Row 20 starts with a short story and
+   later asks for more dialogue between the characters; the assistant revises
+   the story. Row 551 asks for a Python rectangle calculator and later asks for
+   comments on each step; the assistant returns a commented version. The
+   desired behavior is to use prior turns, acknowledge a refinement, and
+   revise the answer rather than restart or ignore the new constraint.
+
+3. Grounded question answering. Row 10 asks how long fig jam can be stored,
+   providing recipe text, and receives a short answer (up to 3 months). Row 3
+   asks about a test-taking article, then asks for more tips mentioned there.
+   The desired behavior is to extract the answer from supplied text rather
+   than invent facts that contradict it.
+
+4. Creative generation and elaboration. Rows 4, 17, 20, and 801 ask for
+   stories or imaginative world-building and then ask for elaboration. This
+   pattern encourages a conversational, detailed writing style, though a
+   three-prompt qualitative comparison cannot measure creative quality.
+
+The fixed subset is heterogeneous; it does not teach one narrow skill. It
+contains both longer formatted advice and brief factual responses. The
+training script uses only assistant-token loss and retains at most the final
+512 tokens per conversation, so later follow-up turns can dominate what is
+actually optimized. These are intended patterns, not evidence that training
+successfully distilled them.
+
+Qualitative comparison
+----------------------
+q5_qualitative.py uses three NEW prompts (tool-library plan, clothing-swap
+follow-up with accessibility/time constraints, and a repair-cafe notice) for
+the base model, LoRA ranks 1/4/16, and full fine-tuning. These are not copied
+from the saved training rows and are not sampled from test_sft. Outputs are in
+results/sft_lora_20260924_204124/qualitative_comparison.txt.
+
+Observed: most variants produce numbered advice for the tool-library prompt;
+several repeat or add generic steps. For the clothing-swap follow-up, several
+mention wheelchair access but do not supply a useful two-hour setup schedule;
+base and some variants also produce repetitions or malformed continuation.
+All five variants mishandle the repair-cafe notice: a lamp is electrical and
+cannot be accepted this month, while 11 a.m. is within walk-in hours and needs
+no booking. Some outputs contradict themselves or repeat stray text. No clear
+instruction-following improvement is established by these examples. Treat
+this as an honest qualitative limitation, not a performance claim.
+
+The generation limit is 220 new tokens, so some longer answers stop mid-list.
+The checkpoint is Qwen2.5-0.5B base rather than an instruction-tuned model;
+that and the short, heterogeneous one-epoch training run limit what one can
+conclude from a few greedy samples.

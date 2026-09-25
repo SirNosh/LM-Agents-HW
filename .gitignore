@@ -1,0 +1,13 @@
+project.md
+timeline.md
+__pycache__/
+*.py[cod]
+*.log
+*.aux
+*.out
+*.toc
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.synctex.gz

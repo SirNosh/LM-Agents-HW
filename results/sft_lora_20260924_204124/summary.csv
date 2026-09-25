@@ -1,0 +1,5 @@
+run,trainable_parameters,learning_rate,training_seconds,peak_allocated_gib,peak_reserved_gib,final_train_loss,weights_path
+lora_r1,549888,0.0002,310.4,1.844,2.076,1.5673040390014648,/mnt/c/Users/devya/Downloads/LM-Agents-HW/results/sft_lora_20260924_204124/weights/lora_r1
+lora_r4,2199552,0.0002,320.34,1.869,2.121,1.552022361755371,/mnt/c/Users/devya/Downloads/LM-Agents-HW/results/sft_lora_20260924_204124/weights/lora_r4
+lora_r16,8798208,0.0002,337.18,1.967,2.227,1.5471437454223633,/mnt/c/Users/devya/Downloads/LM-Agents-HW/results/sft_lora_20260924_204124/weights/lora_r16
+full_ft,494032768,2e-05,158.03,4.616,4.977,1.5435738563537598,/mnt/c/Users/devya/Downloads/LM-Agents-HW/results/sft_lora_20260924_204124/weights/full_ft

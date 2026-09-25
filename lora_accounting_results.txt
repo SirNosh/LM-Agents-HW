@@ -1,0 +1,39 @@
+LoRA Parameter and Memory Accounting Results
+=============================================
+
+Assumptions
+-----------
+- LoRA rank: 16
+- Transformer layers: 24
+- Projection dimensions are taken from the homework prompt.
+- Trainable parameters and gradients use 16-bit storage (2 bytes each).
+- AdamW stores two FP32 moment estimates per trainable parameter (4 bytes each).
+- Memory totals exclude activations, optimizer overhead, and all other model weights.
+- Full fine-tuning updates 0.49 billion (490,000,000) parameters.
+- MiB and GiB use powers of 1024.
+
+LoRA parameter count
+--------------------
+For each projection, LoRA adds r * (input width + output width) parameters.
+
+LoRA parameters per transformer layer: 366,592
+LoRA parameters across 24 layers:      8,798,208
+
+Memory estimates
+----------------
+LoRA (8,798,208 trainable parameters):
+  Parameters + gradients:             35,192,832 bytes
+                                      33.56 MiB (0.0328 GiB)
+  Plus two FP32 AdamW moments:        105,578,496 bytes total
+                                     100.69 MiB (0.0983 GiB)
+
+Full fine-tuning (490,000,000 trainable parameters):
+  Parameters + gradients:           1,960,000,000 bytes
+                                   1,869.20 MiB (1.8254 GiB)
+  Plus two FP32 AdamW moments:      5,880,000,000 bytes total
+                                   5,607.60 MiB (5.4762 GiB)
+
+Calculation notes
+-----------------
+- Parameters + gradients: 4 bytes per trainable parameter (2-byte parameter + 2-byte gradient).
+- With AdamW moments: 12 bytes per trainable parameter total (4 bytes above + two 4-byte FP32 moments).
