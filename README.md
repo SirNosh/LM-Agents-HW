@@ -19,11 +19,13 @@ No training or model download is required for this calculation.
 
 ## Question 5 — supervised fine-tuning and qualitative comparison
 
-- Data preparation: `q5_prepare_data.py` downloads a deterministic 1,000-conversation sample from `HuggingFaceH4/ultrachat_200k` `train_sft` (seed 42, shuffle buffer 10,000). The exact sampled data used in the completed training run is `data/ultrachat_train_1000_seed42.jsonl`.
+- Data preparation: `q5_prepare_data.py` preserves the deterministic 1,000-conversation `train_sft` subset (seed 42, shuffle buffer 10,000) and makes a fixed 100-conversation `test_sft` sample (seed 42, shuffle buffer 100). Both exact subsets are in `data/`.
 - Training code: `q5_sft_lora.py` trains LoRA ranks 1, 4, 16 and full fine-tuning using that fixed sample.
-- Raw results: `results/sft_lora_20260924_204124/summary.csv` (parameter counts, last logged loss, training time, peak GPU memory) and `training_metrics.csv` (logged training losses).
-- Visualization: `results/sft_lora_20260924_204124/training_loss.png`.
-- Qualitative code: `q5_qualitative.py` generates base/LoRA/full-FT responses to three new behavioral prompts; its recorded output is `results/sft_lora_20260924_204124/qualitative_comparison.txt`. `q5_subset_behavior_notes.txt` explains why these behaviors were chosen from the *saved 1,000 conversations* and honestly interprets the generations.
+- Raw training results: `results/sft_lora_20260924_204124/summary.csv` (parameter counts, last logged training loss, time, peak memory) and `training_metrics.csv` (training-loss history).
+- Held-out validation code: `q5_validate.py` measures assistant-token loss on all five models using the same chat template, assistant-only masking, and final-512-token truncation as training. `q5_plot_validation.py` plots the result.
+- Raw validation outputs: `results/sft_lora_20260924_204124/validation_summary.csv` and `validation_per_conversation.csv`; figure: `validation_loss.png`. The fixed test sample contains 100 conversations and 42,477 assistant target tokens; none overlaps the 1,000 training conversations.
+- This validates the **saved final checkpoints** only. The original training run did not save intermediate checkpoints, so it cannot yield a validation-loss-over-training curve retroactively. The updated `q5_sft_lora.py` logs held-out validation loss every 25 steps for future runs.
+- Qualitative code: `q5_qualitative.py` generates base/LoRA/full-FT responses to three new behavioral prompts; its recorded output is `results/sft_lora_20260924_204124/qualitative_comparison.txt`. `q5_subset_behavior_notes.txt` explains why these behaviors were chosen from the *saved 1,000 conversations* and interprets the generations.
 
 No random `test_sft` evaluation or validation-loss measurement was run. Thus the assignment's validation-loss requirement remains unmet; the qualitative comparison is **not** a quantitative substitute. Training checkpoint binaries are omitted from Git because the full model is about 988 MB and the three adapters total about 46 MB; `q5_qualitative.py` requires the locally saved checkpoints at `results/sft_lora_20260924_204124/weights/` to rerun. The recorded generations and measurements are included. Training and benchmark scripts were simplified after their completed runs; their published results are from the original runs, not new runs of the cleaned scripts.
 

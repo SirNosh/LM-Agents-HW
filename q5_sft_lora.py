@@ -1,4 +1,4 @@
-"""Question 5: train Qwen2.5-0.5B with LoRA ranks and full fine-tuning."""
+"""Question 5: train LoRA/full FT and log held-out loss during training."""
 
 import csv
 import gc
@@ -22,6 +22,7 @@ FULL_FT_LR = 2e-5
 SEED = 42
 ROOT = Path(__file__).resolve().parent
 TRAIN_PATH = ROOT / "data" / "ultrachat_train_1000_seed42.jsonl"
+TEST_PATH = ROOT / "data" / "ultrachat_test_100_seed42.jsonl"
 
 
 def encode_conversation(tokenizer, messages):
@@ -69,6 +70,8 @@ def main():
             f"Missing fixed 1,000-example training subset: {TRAIN_PATH}. "
             "Prepare it from HuggingFaceH4/ultrachat_200k train_sft first."
         )
+    if not TEST_PATH.exists():
+        raise FileNotFoundError(f"Missing fixed 100-example test_sft subset: {TEST_PATH}")
     if not torch.cuda.is_available() or not torch.cuda.is_bf16_supported():
         raise RuntimeError("This run requires a CUDA GPU with BF16 support")
 
@@ -85,6 +88,14 @@ def main():
     if any(row is None for row in rows):
         raise RuntimeError("A conversation has no assistant target tokens")
     train_dataset = Dataset.from_list(rows)
+    with TEST_PATH.open(encoding="utf-8") as handle:
+        test_messages = [json.loads(line)["messages"] for line in handle]
+    if len(test_messages) != 100:
+        raise RuntimeError(f"Expected 100 test_sft examples; found {len(test_messages)}")
+    test_rows = [encode_conversation(tokenizer, conversation) for conversation in test_messages]
+    if any(row is None for row in test_rows):
+        raise RuntimeError("A held-out conversation has no assistant target tokens")
+    eval_dataset = Dataset.from_list(test_rows)
     collator = DataCollatorForSeq2Seq(tokenizer, label_pad_token_id=-100)
 
     output_dir = ROOT / "results" / ("q5_sft_" + datetime.now().strftime("%Y%m%d_%H%M%S"))
@@ -93,10 +104,10 @@ def main():
     summary_path = output_dir / "summary.csv"
     weights_dir = output_dir / "weights"
     weights_dir.mkdir()
-    metric_fields = ("run", "step", "epoch", "loss")
+    metric_fields = ("run", "step", "epoch", "loss", "eval_loss")
     summary_fields = (
         "run", "trainable_parameters", "learning_rate", "training_seconds",
-        "peak_allocated_gib", "peak_reserved_gib", "final_train_loss", "weights_path",
+        "peak_allocated_gib", "peak_reserved_gib", "final_train_loss", "final_eval_loss", "weights_path",
     )
 
     with metrics_path.open("w", newline="", encoding="utf-8") as metrics_file, \
@@ -137,7 +148,9 @@ def main():
                 bf16=True,
                 gradient_checkpointing=True,
                 gradient_checkpointing_kwargs={"use_reentrant": False},
-                eval_strategy="no",
+                eval_strategy="steps",
+                eval_steps=25,
+                per_device_eval_batch_size=1,
                 logging_strategy="steps",
                 logging_steps=10,
                 logging_first_step=True,
@@ -151,24 +164,27 @@ def main():
                 model=model,
                 args=args,
                 train_dataset=train_dataset,
+                eval_dataset=eval_dataset,
                 data_collator=collator,
             )
             torch.cuda.synchronize()
             torch.cuda.reset_peak_memory_stats()
             start = time.perf_counter()
             trainer.train()
+            final_eval = trainer.evaluate()
             torch.cuda.synchronize()
             elapsed = time.perf_counter() - start
             peak_allocated = torch.cuda.max_memory_allocated() / (1024**3)
             peak_reserved = torch.cuda.max_memory_reserved() / (1024**3)
             history = trainer.state.log_history
             for record in history:
-                if "loss" in record:
+                if "loss" in record or "eval_loss" in record:
                     metrics_writer.writerow({
                         "run": run_name,
                         "step": record.get("step", ""),
                         "epoch": record.get("epoch", ""),
-                        "loss": record["loss"],
+                        "loss": record.get("loss", ""),
+                        "eval_loss": record.get("eval_loss", ""),
                     })
             metrics_file.flush()
             final_loss = next(
@@ -185,6 +201,7 @@ def main():
                 "peak_allocated_gib": round(peak_allocated, 3),
                 "peak_reserved_gib": round(peak_reserved, 3),
                 "final_train_loss": final_loss,
+                "final_eval_loss": final_eval["eval_loss"],
                 "weights_path": str(checkpoint),
             })
             summary_file.flush()
@@ -193,7 +210,7 @@ def main():
             torch.cuda.empty_cache()
 
     print(f"Training results: {output_dir}")
-    print("Note: this script records training loss only; held-out evaluation is separate.")
+    print("Recorded training and held-out loss every 25 steps and at the final checkpoint.")
 
 
 if __name__ == "__main__":
