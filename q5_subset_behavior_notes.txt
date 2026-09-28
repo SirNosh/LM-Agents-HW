@@ -50,15 +50,43 @@ the base model, LoRA ranks 1/4/16, and full fine-tuning. These are not copied
 from the saved training rows and are not sampled from test_sft. Outputs are in
 results/sft_lora_20260924_204124/qualitative_comparison.txt.
 
-Observed: most variants produce numbered advice for the tool-library prompt;
-several repeat or add generic steps. For the clothing-swap follow-up, several
-mention wheelchair access but do not supply a useful two-hour setup schedule;
-base and some variants also produce repetitions or malformed continuation.
-All five variants mishandle the repair-cafe notice: a lamp is electrical and
-cannot be accepted this month, while 11 a.m. is within walk-in hours and needs
-no booking. Some outputs contradict themselves or repeat stray text. No clear
-instruction-following improvement is established by these examples. Treat
-this as an honest qualitative limitation, not a performance claim.
+Observed differences across models:
+
+* On the tool-library plan, the base answer is relatively concrete (it asks for
+  the tool, damage date, and location) but contradicts itself about what to tell
+  borrowers when a tool is unrepairable. LoRA r=1 gives a cleaner library-system
+  and borrower-notification sequence, although it trails off. r=4 suggests a
+  notebook/camera and repair service, including potentially invented app names.
+  r=16 and full FT give more steps, but also add redundant or nonsensical
+  advice: r=16 repeats the impossible "replace or repair" instruction and adds
+  cleanup/disposal/record-keeping; full FT says to repair a tool "if [it] is not
+  damaged" and adds training that was not requested.
+* On the clothing-swap follow-up, the base largely ignores the two-hour setup
+  constraint and produces malformed repeated chat-template text. r=1 remembers
+  the prior plan but drifts into repeated donate/recycle steps and does not
+  address wheelchair access. r=4 and r=16 explicitly add accessibility features
+  (ramps/elevators) and keep the clothing-swap context, but neither gives a
+  practical two-hour schedule; r=16's answer is cut off. Full FT mentions the
+  two-hour constraint but only repeats it as a planning item rather than
+  breaking setup into timed tasks. So higher ranks are not uniformly better:
+  full FT is the only one to echo that constraint, while r=4 is more specific
+  about how tables and venue should support wheelchair users.
+* On the notice, all variants make the same key reasoning mistake: they say a
+  booking is needed at 11 a.m., even though walk-ins are allowed until noon,
+  and they lead with yes to bringing the lamp despite the ban on electrical
+  items. Their failure modes differ: base/full FT are comparatively coherent
+  but self-contradict; r=1 degenerates into repeated iOS-version text; r=4 emits
+  repeated chat-like fragments and stray Chinese tokens; r=16 loops the same
+  wrong claim. This makes the severe grounding error shared, with extra
+  repetition/formatting problems in the adapters.
+
+Overall, these examples show stylistic differences, not a clear monotonic gain
+from increasing LoRA rank. r=1 sometimes adapts the conversational plan well;
+r=4 is more explicit about accessibility; r=16 tends to over-elaborate or loop;
+full FT is sometimes more fluent and echoes a new constraint, but still makes
+basic contradictions. The prompts use deterministic greedy decoding with a
+220-token cap, and three examples are too few to claim these are stable model
+traits. Treat these as illustrative observations, not a benchmark.
 
 The generation limit is 220 new tokens, so some longer answers stop mid-list.
 The checkpoint is Qwen2.5-0.5B base rather than an instruction-tuned model;
